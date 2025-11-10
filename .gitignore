@@ -1,0 +1,97 @@
+# ---- Python standard ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+venv/
+ENV/
+env/
+.venv/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter/IPython
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# PyBuilder
+.pybuilder/
+
+target/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs / temp
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Virtualenvs
+pip-wheel-metadata/
+
+# ---- Project specific datasets & outputs ----
+# Raw and processed dataset archives and extracted folders
+ISIC_2019_train/
+ISIC_2019_train.tar
+labeled_input/
+# Generated run artifacts
+runs/
+prototype/
+metrics/
+# Any medmnist download cache (if created)
+medmnist/
+# Large evaluation outputs
+*.fid
+*.lpips
+
+# Model checkpoints
+checkpoints/
+*.pt
+*.pth
+
+# Images generated during experiments
+generated_images/
+outputs/
+
+# Ignore any accidental large CSV exports
+*.csv
+!ISIC_2019_train/*.csv  # keep original metadata CSVs inside dataset root if desired
+
+# Allow specific tracking overrides via negate patterns below as needed
+# !some/important/file.csv
+

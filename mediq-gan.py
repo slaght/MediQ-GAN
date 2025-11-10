@@ -125,7 +125,7 @@ print(f"device: {device} | pqc_device: {pqc_device}")
 # Dataset loading
 # -----------------------------
 if args.dataset == "ISIC2019":
-    root_directory = "ISIC_2019_train/sampled_20pct/"
+    root_directory = "ISIC_2019_train/labeled_input/"
     if args.proto_path == "":
         args.proto_path = "prototype/isic2019_avg.pt"
 elif args.dataset == "ODIR-5k":

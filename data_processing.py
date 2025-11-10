@@ -69,6 +69,9 @@ def process_isic2019(root_dir: str,
         if not image_path.exists():
             continue
 
+        labeled_out_dir = (root / output_dir / f"{label}").resolve()
+        labeled_out_dir.mkdir(parents=True, exist_ok=True)
+
         # Remove images containing "downsampled" if requested
         if filter_downsampled and "downsampled" in str(image_name).lower():
             try:
@@ -77,8 +80,9 @@ def process_isic2019(root_dir: str,
                 pass
             continue
 
-        new_filename = f"{label}_{image_name}.jpg"
-        new_path = out_dir / new_filename
+        new_filename = f"{image_name}.jpg"
+        new_path = out_dir / f"{label}" / new_filename
+        print(new_path)
         shutil.move(str(image_path), str(new_path))
 
     print(f"[ISIC2019] Done. Renamed images at: {out_dir}")

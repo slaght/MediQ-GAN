@@ -37,6 +37,9 @@ def scale_data(data, scale=None, dtype=np.float32):
     data = ((max_scale - min_scale) * (data - min_data) / (max_data - min_data)) + min_scale
     return data.astype(dtype)
 
+def relu(x):
+    return x * (x > 0)
+    
 # Function from https://github.com/SilverEngineered/MosaiQ
 def get_noise_upper_bound(gen_loss, disc_loss, original_ratio):
     R = disc_loss.detach().cpu().numpy()/gen_loss.detach().cpu().numpy()
