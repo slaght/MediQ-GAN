@@ -1,3 +1,8 @@
+source .venv/bin/activate
+
+python data_processing.py ISIC2019 --root_dir ./ISIC_2019_train --image_dir ISIC_2019_Trainin
+g_Input --csv_path ISIC_2019_Training_Metadata.csv --output_dir labeled_input --filter_downsampled
+
 # MediQ-GAN: Quantum-Inspired GAN for High Resolution Medical Image Generation
 
 This repository provides code to preprocess datasets, train models, and implement the quantum-inspired GAN in our paper.

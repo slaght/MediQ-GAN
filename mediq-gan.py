@@ -1,5 +1,5 @@
 import os, math, random, argparse
-from datetime import datetime
+import time
 
 import numpy as np
 import torch
@@ -824,7 +824,11 @@ def train_qgan(num_epochs=50, n_critic=5):
     upper_bounds = [noise_upper_bound]
 
     for epoch in range(start_epoch, start_epoch + num_epochs):
+        # epoch-level timing
+        epoch_start_time = time.time()
+        epoch_batches = len(dataloader)
         for i, (real_imgs, labels) in enumerate(dataloader):
+            batch_start_time = time.time()
             real_imgs = real_imgs.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
 
@@ -925,9 +929,27 @@ def train_qgan(num_epochs=50, n_critic=5):
             noise_upper_bound = get_noise_upper_bound(g_loss, d_loss, original_ratio)
             upper_bounds.append(noise_upper_bound)
 
-            if i % 10 == 0:
-                print(f"Epoch [{epoch}/{start_epoch + num_epochs}] Batch [{i}/{len(dataloader)}] "
-                      f"D_loss: {d_loss.item():.4f} G_loss: {g_loss.item():.4f} noise_ub: {noise_upper_bound:.4f}")
+            # Per-batch timing and ETA for the epoch
+            batch_time = time.time() - batch_start_time
+            elapsed = time.time() - epoch_start_time
+            avg_batch = elapsed / (i + 1)
+            remaining = max(0, epoch_batches - (i + 1))
+            eta_seconds = remaining * avg_batch
+            hrs = int(eta_seconds // 3600)
+            mins = int((eta_seconds % 3600) // 60)
+            secs = int(eta_seconds % 60)
+            eta_str = f"{hrs:02d}:{mins:02d}:{secs:02d}"
+            try:
+                d_loss_val = float(d_loss.item())
+            except Exception:
+                d_loss_val = float('nan')
+            try:
+                g_loss_val = float(g_loss.item())
+            except Exception:
+                g_loss_val = float('nan')
+            print(f"Epoch [{epoch}/{start_epoch + num_epochs}] Batch [{i+1}/{epoch_batches}] "
+                  f"D_loss: {d_loss_val:.4f} G_loss: {g_loss_val:.4f} noise_ub: {noise_upper_bound:.4f} "
+                  f"batch_time: {batch_time:.3f}s ETA: {eta_str}")
 
             if i % 250 == 0:
                 with torch.no_grad():
@@ -947,8 +969,7 @@ def train_qgan(num_epochs=50, n_critic=5):
                     plt.imsave(os.path.join(save_dir, f"epoch_{epoch}_step_{i}.png"),
                                grid.permute(1,2,0).numpy())
 
-        if (epoch + 1) % 10 == 0:
-            ckpt.save_checkpoint(generator, discriminator, optim_G, optim_D, epoch, g_loss.item(), d_loss.item())
+        ckpt.save_checkpoint(generator, discriminator, optim_G, optim_D, epoch, g_loss.item(), d_loss.item())
 
 # -----------------------------
 # Inference
