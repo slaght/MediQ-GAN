@@ -13,5 +13,6 @@ PennyLane==0.42.3           # quantum circuit interface
 PennyLane_Lightning==0.42.0 # lightning.qubit device used
 pandas==2.3.3               # CSV metadata processing
 tqdm==4.67.1                # progress bars
-medmnist==3.0.2             # RetinaMNIST dataset export
+medmnist                    # RetinaMNIST dataset export
+kaggle                      # Kaggle API for dataset downloading
 pillow==12.0.0              # image file I/O (PIL)

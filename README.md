@@ -43,6 +43,30 @@ tar -xvf ODIR-5k_Train.tar.gz
 pip install medmnist
 ```
 
+### Knee Osteoarthritis X-ray (KneeOA)
+
+Source (Kaggle): https://www.kaggle.com/datasets/gauravduttakiit/osteoarthritis-knee-xray
+
+You need Kaggle credentials stored at `~/.kaggle/kaggle.json` with proper permissions.
+
+```bash
+pip install kaggle  # if not already installed via requirements.txt
+mkdir -p ~/.kaggle
+chmod 600 ~/.kaggle/kaggle.json  # ensure correct permissions
+```
+
+Preprocess & (optionally) download automatically:
+
+```bash
+python data_processing.py KneeOA \
+  --root_dir /path/to/KneeOA_root \
+  --output_dir labeled_input \
+  --use_kaggle \
+  --organize_into_label_dirs
+```
+
+If you already downloaded/unzipped manually, omit `--use_kaggle` and point `--root_dir` to the extracted folder. The script heuristically infers labels (0=normal, 1=osteoarthritis) from folder or file names.
+
 ## Preprocessing
 
 Use `preprocess.py` to prepare datasets. The following commands replicate the paper's setup.
@@ -78,6 +102,18 @@ python preprocess.py RetinaMNIST \
   --merge_splits \
   --flatten_train
 ```
+
+### KneeOA
+
+```bash
+python preprocess.py KneeOA \
+  --root_dir /path/to/KneeOA_root \
+  --output_dir labeled_input \
+  --use_kaggle \
+  --organize_into_label_dirs
+```
+
+Result: `/path/to/KneeOA_root/labeled_input/{0,1}/*.jpg|*.png` ready for `ImageFolder`.
 
 After preprocessing, point `--data_root` to the resulting class-organized folders.
 
@@ -137,6 +173,36 @@ python hybridgan_simple.py \
   --use_proto 1  --proto_path prototype/RetinaMNIST_avg.pt \
   --seed 42
 ```
+
+  ### Example: KneeOA (binary classes; quantum disabled)
+
+  ```bash
+  python mediq-gan.py \
+    --mode train --version 0 \
+    --dataset KneeOA \
+    --noise_size 128 \
+    --encoder_type cnn --decoder_type style2 \
+    --n_generators 0 \
+    --feature_split_ratio 0.5 \
+    --gan_type wgan-gp --lambda_gp 10.0 \
+    --batch_size 16 \
+    --seed 42
+  ```
+
+  Add prototypes (optional):
+  ```bash
+  python mediq-gan.py \
+    --mode train --version 1 \
+    --dataset KneeOA \
+    --use_proto 1 --proto_path prototype/KneeOA_avg.pt \
+    --noise_size 128 \
+    --encoder_type cnn --decoder_type style2 \
+    --n_generators 3 \
+    --feature_split_ratio 0.5 \
+    --gan_type wgan-gp --lambda_gp 10.0 \
+    --batch_size 16 \
+    --seed 42
+  ```
 
 ## Generating Images
 

@@ -341,6 +341,176 @@ def process_retinamnist(out_dir: str,
     print(f"[RetinaMNIST] Done at: {out_root}")
 
 # ---------------------------
+# Knee Osteoarthritis X-ray (Kaggle)
+# ---------------------------
+
+def _safe_class_name(name: str) -> str:
+    s = str(name).lower().strip()
+    s = s.replace(" ", "_")
+    return s
+
+def _guess_kneeoa_label_from_name(name: str) -> Optional[int]:
+    """
+    Heuristic label mapping from filename or folder name.
+    Returns 0 for normal/non-osteoarthritis, 1 for osteoarthritis, else None.
+    """
+    n = _safe_class_name(name)
+    # Common keywords
+    if any(k in n for k in ["normal", "no_oa", "non_oa", "negative", "healthy"]):
+        return 0
+    if any(k in n for k in ["osteoarthritis", "oa", "positive", "disease"]):
+        return 1
+    return None
+
+def _ensure_is_image_file(fname: str) -> bool:
+    lower = fname.lower()
+    return lower.endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"))
+
+def download_kneeoa_with_kaggle(out_dir: str,
+                                kaggle_dataset: str = "gauravduttakiit/osteoarthritis-knee-xray"):
+    """
+    Download the Knee Osteoarthritis X-ray dataset using Kaggle API.
+    Requires: Kaggle credentials at ~/.kaggle/kaggle.json
+    Gracefully warns if Kaggle API is not installed.
+    """
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi  # type: ignore
+    except Exception as e:
+        print("[KneeOA] Kaggle API import failed. Install 'kaggle' and place credentials in ~/.kaggle/kaggle.json.")
+        print(f"[KneeOA] Skipping download step. Reason: {e}")
+        return
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    api = KaggleApi()
+    api.authenticate()
+    # Download files into out_dir
+    api.dataset_download_files(kaggle_dataset, path=str(out), unzip=True)
+    print(f"[KneeOA] Downloaded & extracted to: {out}")
+
+def process_kneeoa(root_dir: str,
+                   output_dir: str,
+                   use_kaggle: bool = False,
+                   kaggle_dataset: str = "gauravduttakiit/osteoarthritis-knee-xray",
+                   organize_into_label_dirs: bool = True):
+    """
+    Prepare Knee Osteoarthritis dataset into labeled_input/<label>/image.jpg structure.
+
+    Strategy:
+    - If use_kaggle=True: download into root_dir, then scan.
+    - Otherwise: assume root_dir contains either:
+        * subfolders per class (e.g., Normal/, Osteoarthritis/), or
+        * mixed images and a CSV (optional). We rely on folder/file name heuristics.
+    """
+    root = Path(root_dir)
+    if use_kaggle:
+        download_kneeoa_with_kaggle(str(root), kaggle_dataset=kaggle_dataset)
+
+    out_dir = (root / output_dir).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # If a Train.csv exists, prefer CSV-based labeling (Kaggle KneeXray layout)
+    csv_candidates = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        if 'Train.csv' in filenames:
+            csv_candidates.append(Path(dirpath) / 'Train.csv')
+        elif 'train.csv' in filenames:
+            csv_candidates.append(Path(dirpath) / 'train.csv')
+
+    moved = 0
+    label_counts = defaultdict(int)
+    if csv_candidates:
+        # Use the first match (typically root/KneeXray/Train.csv)
+        csv_fp = csv_candidates[0]
+        df = pd.read_csv(csv_fp)
+        # Expected columns: filename,label
+        if not {'filename', 'label'}.issubset(set(df.columns)):
+            print(f"[KneeOA] CSV {csv_fp} missing required columns 'filename,label'. Falling back to heuristic.")
+        else:
+            # Image folder usually next to CSV: <csv_dir>/train
+            csv_dir = csv_fp.parent
+            img_dir = csv_dir / 'train'
+            if not img_dir.exists():
+                # Fallback: search for a folder containing the first filename
+                example = df.iloc[0]['filename']
+                found_dir = None
+                for dpath, dnames, fnames in os.walk(root):
+                    if example in fnames:
+                        found_dir = Path(dpath)
+                        break
+                img_dir = found_dir if found_dir is not None else csv_dir
+
+            for _, row in tqdm(df.iterrows(), total=len(df), desc="KneeOA-CSV"):
+                fname = str(row['filename'])
+                label = int(row['label'])
+                fpath = img_dir / fname
+                if not fpath.exists():
+                    # try to locate anywhere under root
+                    hit = None
+                    for dpath, dnames, fnames in os.walk(root):
+                        if fname in fnames:
+                            hit = Path(dpath) / fname
+                            break
+                    if hit is None:
+                        continue
+                    fpath = hit
+                labeled_dir = out_dir / f"{label}"
+                labeled_dir.mkdir(parents=True, exist_ok=True)
+                target = labeled_dir / fpath.name
+                if target.exists():
+                    stem, ext = target.stem, target.suffix
+                    k = 1
+                    while (labeled_dir / f"{stem}_{k}{ext}").exists():
+                        k += 1
+                    target = labeled_dir / f"{stem}_{k}{ext}"
+                shutil.copy2(str(fpath), str(target))
+                moved += 1
+                label_counts[label] += 1
+
+    # If CSV path didn't move anything, fall back to heuristic scan (rare)
+    if moved == 0:
+        for dirpath, dirnames, filenames in os.walk(root):
+            dpath = Path(dirpath)
+            try:
+                if out_dir.resolve() in dpath.resolve().parents or dpath.resolve() == out_dir.resolve():
+                    continue
+            except Exception:
+                pass
+            folder_label = _guess_kneeoa_label_from_name(dpath.name)
+            for fname in filenames:
+                if not _ensure_is_image_file(fname):
+                    continue
+                fpath = dpath / fname
+                if not fpath.is_file():
+                    continue
+                label = folder_label
+                if label is None:
+                    label = _guess_kneeoa_label_from_name(fname)
+                if label is None:
+                    continue
+                labeled_dir = out_dir / f"{label}"
+                labeled_dir.mkdir(parents=True, exist_ok=True)
+                target = labeled_dir / fname
+                if target.exists():
+                    stem = target.stem; ext = target.suffix
+                    idx = 1
+                    while (labeled_dir / f"{stem}_{idx}{ext}").exists():
+                        idx += 1
+                    target = labeled_dir / f"{stem}_{idx}{ext}"
+                shutil.copy2(str(fpath), str(target))
+                moved += 1
+                if label is not None:
+                    label_counts[label] += 1
+
+    print(f"[KneeOA] Organized {moved} images into: {out_dir}")
+    if moved > 0:
+        try:
+            keys = sorted(label_counts.keys())
+            counts_str = ", ".join([f"{k}: {label_counts[k]}" for k in keys])
+            print(f"[KneeOA] Per-label counts -> {counts_str}")
+        except Exception:
+            pass
+
+# ---------------------------
 # CLI
 # ---------------------------
 
@@ -397,6 +567,20 @@ def build_parser():
     p_ret.add_argument("--flatten_train", action="store_true",
                        help="If set, move class folders up from train/ to out_dir/ and delete train/.")
 
+    # KneeOA (Kaggle)
+    p_knee = subparsers.add_parser("KneeOA", help="Preprocess Knee Osteoarthritis X-ray (Kaggle)")
+    p_knee.add_argument("--root_dir", required=True, type=str,
+                        help="Path where data is or will be downloaded to.")
+    p_knee.add_argument("--output_dir", required=True, type=str,
+                        help="Relative path under root for output folder (e.g., labeled_input).")
+    p_knee.add_argument("--use_kaggle", action="store_true",
+                        help="Download using Kaggle API into root_dir before processing.")
+    p_knee.add_argument("--kaggle_dataset", type=str,
+                        default="gauravduttakiit/osteoarthritis-knee-xray",
+                        help="Kaggle dataset slug to download.")
+    p_knee.add_argument("--organize_into_label_dirs", action="store_true",
+                        help="Organize outputs into subfolders per numeric label (default behavior).")
+
     return p
 
 def main():
@@ -435,6 +619,14 @@ def main():
             rgb=bool(args.rgb) or True,  # default True
             merge_splits=bool(args.merge_splits),
             flatten_train=bool(args.flatten_train)
+        )
+    elif args.dataset == "KneeOA":
+        process_kneeoa(
+            root_dir=args.root_dir,
+            output_dir=args.output_dir,
+            use_kaggle=bool(args.use_kaggle),
+            kaggle_dataset=args.kaggle_dataset,
+            organize_into_label_dirs=bool(args.organize_into_label_dirs)
         )
     else:
         raise ValueError(f"Unknown dataset: {args.dataset}")

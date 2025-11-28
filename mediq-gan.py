@@ -28,7 +28,7 @@ parser.add_argument('--version', type=int, default=0)
 
 parser.add_argument('--input_size', type=int, default=64)
 parser.add_argument('--crop_size', type=int, default=64)
-parser.add_argument('--dataset', type=str, default='ISIC2019', choices=['ISIC2019', 'ODIR-5k', 'RetinaMNIST'])
+parser.add_argument('--dataset', type=str, default='ISIC2019', choices=['ISIC2019', 'ODIR-5k', 'RetinaMNIST', 'KneeOA'])
 parser.add_argument('--output_dir', type=str, default='runs/',
                     help='Root directory for checkpoints and generated images')
 
@@ -136,6 +136,24 @@ elif args.dataset == "RetinaMNIST":
     root_directory = "RetinaMNIST/labeled_input"
     if args.proto_path == "":
         args.proto_path = "prototype/RetinaMNIST_avg.pt"
+elif args.dataset == "KneeOA":
+    # Expect data preprocessed into root_directory/labeled_input/<label>/*
+    # Try a few common roots (first existing wins)
+    candidate_roots = [
+        "KneeOA/labeled_input",
+        "Osteo_train/labeled_input",
+        "Osteoarthritis/labeled_input",
+    ]
+    root_directory = None
+    for c in candidate_roots:
+        if os.path.isdir(c):
+            root_directory = c
+            break
+    if root_directory is None:
+        # Fallback to default
+        root_directory = "KneeOA/labeled_input"
+    if args.proto_path == "":
+        args.proto_path = "prototype/KneeOA_avg.pt"
 
 transform = T.Compose([
     T.Resize((input_size, input_size)),

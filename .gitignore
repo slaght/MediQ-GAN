@@ -69,6 +69,8 @@ pip-wheel-metadata/
 ISIC_2019_train/
 ISIC_2019_train.tar
 labeled_input/
+Osteo_train/
+
 # Generated run artifacts
 runs/
 prototype/
