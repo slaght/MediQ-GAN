@@ -74,7 +74,6 @@ Osteo_train/
 # Generated run artifacts
 runs/
 prototype/
-metrics/
 # Any medmnist download cache (if created)
 medmnist/
 # Large evaluation outputs

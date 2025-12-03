@@ -16,3 +16,6 @@ tqdm==4.67.1                # progress bars
 medmnist                    # RetinaMNIST dataset export
 kaggle                      # Kaggle API for dataset downloading
 pillow==12.0.0              # image file I/O (PIL)
+
+# Evaluation metrics
+clean-fid==0.1.35           # FID computation (clean-fid)

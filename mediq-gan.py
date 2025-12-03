@@ -1059,4 +1059,57 @@ if __name__ == "__main__":
             class_labels=labels.tolist(),
             offset=0
         )
+    elif args.mode == 'generate_epoch':
+        # Generate images from a specific epoch checkpoint.
+        # Expects --version and --epoch and optional --samples_per_class.
+        # Outputs to runs/<dataset>/v<version>/generated_img_epoch/<epoch>/<class>/*.png
+        epoch = int(os.environ.get("EPOCH", "-1"))
+        samples_per_class = int(os.environ.get("SAMPLES_PER_CLASS", "200"))
+        if epoch < 0:
+            raise ValueError("For mode=generate_epoch, set EPOCH env var to target epoch number (e.g., 12)")
+
+        # Build models and load specific checkpoint
+        generator, discriminator, optim_G, optim_D = _build_models_for_infer()
+        ckpt = CheckpointManager(args.dataset, args.version)
+        ckpt_path = os.path.join(args.output_dir, args.dataset, f'v{args.version}', 'ckpt', f'checkpoint_epoch_{epoch:03d}.pth')
+        loaded = ckpt.load_checkpoint(generator, discriminator, optim_G, optim_D, checkpoint_path=ckpt_path)
+        if loaded is None:
+            raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
+        generator.eval()
+
+        # Build labels list
+        labels = labels_n_per_class(samples_per_class)
+        labels = labels.to(device)
+
+        # Output folder per epoch
+        save_root = os.path.join(args.output_dir, args.dataset, f'v{args.version}', 'generated_img_epoch', f'{epoch:03d}')
+        os.makedirs(save_root, exist_ok=True)
+
+        idx_global = 0
+        step = args.batch_size
+        for i in range(0, labels.numel(), step):
+            current_labels = labels[i:i+step]
+            if current_labels.numel() == 0:
+                break
+            B = current_labels.size(0)
+
+            if args.use_proto:
+                mu_z, sigma = generator.proto(current_labels)
+                eps = torch.randn_like(mu_z)
+                noise = mu_z + sigma * eps
+            else:
+                noise = torch.randn(B, nz, device=device)
+
+            fake = generator(noise, current_labels).detach().to('cpu').numpy()
+            fake = scale_data(fake, [0, 1]).reshape(-1, 3, input_size, input_size)
+
+            for j, img in enumerate(fake):
+                lbl = int(current_labels[j].item())
+                save_class_dir = os.path.join(save_root, str(lbl))
+                os.makedirs(save_class_dir, exist_ok=True)
+                plt.imsave(
+                    os.path.join(save_class_dir, f"image_{idx_global:05d}.png"),
+                    img.transpose(1, 2, 0)
+                )
+                idx_global += 1
 
